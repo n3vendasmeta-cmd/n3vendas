@@ -1,14 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Biblioteca SQL</title>
+<meta charset="utf-8">
+<title>Biblioteca SQL</title>
+
+<style>
+body {
+    font-family: Arial;
+    margin: 20px;
+}
+
+details {
+    margin-bottom: 10px;
+}
+
+pre {
+    background: #f4f4f4;
+    padding: 10px;
+    overflow-x: auto;
+}
+</style>
+
 </head>
 <body>
-    <h1>Biblioteca SQL - SCRIPTS</h1>
-<li>
-            <a href="ValidarMovimentacoesEstoqueEntreVendaOriginalEDevolucao.sql">
-                Validar Movimentações Estoque Entre Venda Original e Devolução
-            </a>
-        </li>
+
+<h1>Biblioteca SQL</h1>
+
+<div id="conteudo"></div>
+
+<script>
+
+const usuario = "n3vendasmeta-cmd";
+const repositorio = "n3vendas";
+
+const pastas = [
+    "MMCA",
+    "LMC",
+    "PIX",
+    "ShellBox",
+    "Relatorios"
+];
+
+async function carregar() {
+
+    const container = document.getElementById("conteudo");
+
+    for (const pasta of pastas) {
+
+        const titulo = document.createElement("h2");
+        titulo.innerText = pasta;
+        container.appendChild(titulo);
+
+        const resposta = await fetch(
+            `https://api.github.com/repos/${usuario}/${repositorio}/contents/${pasta}`
+        );
+
+        if (!resposta.ok)
+            continue;
+
+        const arquivos = await resposta.json();
+
+        for (const arquivo of arquivos) {
+
+            if (!arquivo.name.endsWith(".sql"))
+                continue;
+
+            const details = document.createElement("details");
+
+            const summary = document.createElement("summary");
+            summary.innerText = arquivo.name;
+
+            details.appendChild(summary);
+
+            details.addEventListener("toggle", async () => {
+
+                if (!details.open)
+                    return;
+
+                if (details.dataset.carregado)
+                    return;
+
+                const sql = await fetch(arquivo.download_url);
+                const texto = await sql.text();
+
+                const pre = document.createElement("pre");
+                pre.textContent = texto;
+
+                details.appendChild(pre);
+
+                details.dataset.carregado = "1";
+            });
+
+            container.appendChild(details);
+        }
+    }
+}
+
+carregar();
+
+</script>
+
 </body>
 </html>
