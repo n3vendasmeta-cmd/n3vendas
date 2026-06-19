@@ -14,14 +14,20 @@ details {
     margin-bottom: 10px;
 }
 
+summary {
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 18px;
+}
+
 pre {
     background: #f4f4f4;
     padding: 10px;
     overflow-x: auto;
 }
 </style>
-
 </head>
+
 <body>
 
 <h1>Biblioteca SQL</h1>
@@ -29,7 +35,6 @@ pre {
 <div id="conteudo"></div>
 
 <script>
-
 const usuario = "n3vendasmeta-cmd";
 const repositorio = "n3vendas";
 
@@ -39,14 +44,17 @@ const pastas = [
 ];
 
 async function carregar() {
-
     const container = document.getElementById("conteudo");
 
     for (const pasta of pastas) {
 
-        const titulo = document.createElement("h2");
+        const grupo = document.createElement("details");
+
+        const titulo = document.createElement("summary");
         titulo.innerText = pasta;
-        container.appendChild(titulo);
+
+        grupo.appendChild(titulo);
+        container.appendChild(grupo);
 
         const resposta = await fetch(
             `https://api.github.com/repos/${usuario}/${repositorio}/contents/${pasta}`
@@ -70,12 +78,8 @@ async function carregar() {
             details.appendChild(summary);
 
             details.addEventListener("toggle", async () => {
-
-                if (!details.open)
-                    return;
-
-                if (details.dataset.carregado)
-                    return;
+                if (!details.open) return;
+                if (details.dataset.carregado) return;
 
                 const sql = await fetch(arquivo.download_url);
                 const texto = await sql.text();
@@ -84,17 +88,15 @@ async function carregar() {
                 pre.textContent = texto;
 
                 details.appendChild(pre);
-
                 details.dataset.carregado = "1";
             });
 
-            container.appendChild(details);
+            grupo.appendChild(details);
         }
     }
 }
 
 carregar();
-
 </script>
 
 </body>
