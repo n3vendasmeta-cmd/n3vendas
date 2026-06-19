@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -52,7 +51,6 @@ pre {
     white-space: pre-wrap;
 }
 </style>
-
 </head>
 
 <body>
@@ -63,19 +61,17 @@ pre {
 <div id="conteudo"></div>
 
 <script>
-const usuario = "n3vendasmeta-cmd";
-const repositorio = "n3vendas";
-
-const pastas = [
-    "VENDA",
-    "LMC"
-];
+const scripts = {
+    "VENDA": [
+        "ValidarMovimentacoesEstoqueEntreVendaOriginalEDevolucao.sql"
+    ],
+    "LMC": []
+};
 
 async function carregar() {
     const container = document.getElementById("conteudo");
 
-    for (const pasta of pastas) {
-
+    for (const pasta in scripts) {
         const grupo = document.createElement("details");
         grupo.className = "pasta";
 
@@ -85,27 +81,12 @@ async function carregar() {
         grupo.appendChild(titulo);
         container.appendChild(grupo);
 
-        const resposta = await fetch(
-            `https://api.github.com/repos/${usuario}/${repositorio}/contents/${pasta}`
-        );
-        console.log("Status:", resposta.status);
-        if (!resposta.ok)
-            continue;
-
-        const arquivos = await resposta.json();
-        console.log("Pasta:", pasta);
-        console.log("Arquivos:", arquivos);
-
-        for (const arquivo of arquivos) {
-
-            if (!arquivo.name.toLowerCase().endsWith(".sql"))
-                continue;
-
+        for (const nomeArquivo of scripts[pasta]) {
             const details = document.createElement("details");
             details.className = "script";
 
             const summary = document.createElement("summary");
-            summary.innerText = "📄 " + arquivo.name;
+            summary.innerText = "📄 " + nomeArquivo;
 
             details.appendChild(summary);
 
@@ -113,8 +94,8 @@ async function carregar() {
                 if (!details.open) return;
                 if (details.dataset.carregado) return;
 
-                const sql = await fetch(arquivo.download_url);
-                const texto = await sql.text();
+                const resposta = await fetch(`${pasta}/${nomeArquivo}`);
+                const texto = await resposta.text();
 
                 const pre = document.createElement("pre");
                 pre.textContent = texto;
