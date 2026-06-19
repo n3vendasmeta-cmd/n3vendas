@@ -1,36 +1,64 @@
 <!DOCTYPE html>
-<html>
+
+<html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <title>Biblioteca SQL</title>
 
 <style>
 body {
-    font-family: Arial;
+    font-family: Arial, sans-serif;
     margin: 20px;
+    background: #f8f9fa;
 }
 
-details {
+.titulo {
+    text-align: center;
+    font-size: 42px;
     margin-bottom: 10px;
+}
+
+.linha {
+    width: 350px;
+    border: none;
+    border-top: 3px solid #333;
+    margin: 0 auto 40px auto;
+}
+
+.pasta {
+    margin-bottom: 15px;
+    background: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.script {
+    margin-left: 20px;
 }
 
 summary {
     cursor: pointer;
     font-weight: bold;
     font-size: 18px;
+    padding: 6px;
 }
 
 pre {
     background: #f4f4f4;
-    padding: 10px;
+    padding: 12px;
+    border-radius: 5px;
     overflow-x: auto;
+    white-space: pre-wrap;
 }
 </style>
+
 </head>
 
 <body>
 
-<h1>Biblioteca SQL</h1>
+<h1 class="titulo">Biblioteca SQL</h1>
+<hr class="linha">
 
 <div id="conteudo"></div>
 
@@ -49,9 +77,10 @@ async function carregar() {
     for (const pasta of pastas) {
 
         const grupo = document.createElement("details");
+        grupo.className = "pasta";
 
         const titulo = document.createElement("summary");
-        titulo.innerText = pasta;
+        titulo.innerText = "📁 " + pasta;
 
         grupo.appendChild(titulo);
         container.appendChild(grupo);
@@ -67,13 +96,14 @@ async function carregar() {
 
         for (const arquivo of arquivos) {
 
-            if (!arquivo.name.endsWith(".sql"))
+            if (!arquivo.name.toLowerCase().endsWith(".sql"))
                 continue;
 
             const details = document.createElement("details");
+            details.className = "script";
 
             const summary = document.createElement("summary");
-            summary.innerText = arquivo.name;
+            summary.innerText = "📄 " + arquivo.name;
 
             details.appendChild(summary);
 
