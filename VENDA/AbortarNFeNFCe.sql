@@ -1,4 +1,4 @@
--- Execy
+-- Executar no banco do PDV
 DECLARE @idDoc BIGINT = 0;
 UPDATE DocumentoFiscal SET Cancelado = 1, JustificativaCancelamento='ABORTADO VIA BD' WHERE Id = @idDoc;
 DELETE FROM DocumentoFiscalAguardando WHERE Id = @idDoc;
