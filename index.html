@@ -100,11 +100,24 @@ async function carregar() {
                 const resposta = await fetch(`${pasta}/${nomeArquivo}`);
                 const texto = await resposta.text();
 
-                const pre = document.createElement("pre");
-                pre.textContent = texto;
+                const wrapper = document.createElement("div");
+wrapper.style.position = "relative";
 
-                details.appendChild(pre);
-                details.dataset.carregado = "1";
+const botao = document.createElement("button");
+botao.className = "btn-copiar";
+botao.innerHTML = "⧉";
+botao.title = "Copiar Script";
+
+botao.onclick = () => navigator.clipboard.writeText(texto);
+
+const pre = document.createElement("pre");
+pre.textContent = texto;
+
+wrapper.appendChild(botao);
+wrapper.appendChild(pre);
+
+details.appendChild(wrapper);
+details.dataset.carregado = "1";
             });
 
             grupo.appendChild(details);
