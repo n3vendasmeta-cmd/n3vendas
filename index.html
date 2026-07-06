@@ -45,11 +45,12 @@ summary {
 
 pre {
     background: #f4f4f4;
-    padding: 12px;
+    padding: 12px 40px 12px 12px;
     border-radius: 5px;
     overflow-x: auto;
     white-space: pre-wrap;
 }
+
 .btn-copiar {
     position: absolute;
     top: 8px;
@@ -63,6 +64,24 @@ pre {
 
 .btn-copiar:hover {
     color: #000;
+}
+
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #28a745;
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity .3s;
+    z-index: 9999;
+}
+
+.toast.show {
+    opacity: 1;
 }
 </style>
 </head>
@@ -90,6 +109,48 @@ const scripts = {
     ]
 };
 
+function mostrarToast(mensagem) {
+    let toast = document.getElementById("toast");
+
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "toast";
+        toast.className = "toast";
+        document.body.appendChild(toast);
+    }
+
+    toast.textContent = mensagem;
+    toast.classList.add("show");
+
+    clearTimeout(toast.timer);
+
+    toast.timer = setTimeout(() => {
+        toast.classList.remove("show");
+    }, 2000);
+}
+
+async function copiarTexto(texto) {
+    try {
+        await navigator.clipboard.writeText(texto);
+        mostrarToast("✅ Script copiado com sucesso!");
+    } catch {
+        const textarea = document.createElement("textarea");
+        textarea.value = texto;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.top = "-9999px";
+
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+
+        mostrarToast("✅ Script copiado com sucesso!");
+    }
+}
+
 async function carregar() {
     const container = document.getElementById("conteudo");
 
@@ -116,15 +177,22 @@ async function carregar() {
                 if (!details.open) return;
                 if (details.dataset.carregado) return;
 
-                const resposta = await fetch(`${pasta}/${nomeArquivo}`);
-                const texto = await resposta.text();
+                try {
+                    const resposta = await fetch(`${pasta}/${nomeArquivo}`);
 
-                const wrapper = document.createElement("div");
-wrapper.style.position = "relative";
+                    if (!resposta.ok) {
+                        throw new Error("Arquivo não encontrado");
+                    }
 
-const botao = document.createElement("button");
-botao.className = "btn-copiar";
-botao.innerHTML = `
+                    const texto = await resposta.text();
+
+                    const wrapper = document.createElement("div");
+                    wrapper.style.position = "relative";
+
+                    const botao = document.createElement("button");
+                    botao.className = "btn-copiar";
+                    botao.title = "Copiar Script";
+                    botao.innerHTML = `
 <svg xmlns="http://www.w3.org/2000/svg"
      width="16"
      height="16"
@@ -135,18 +203,26 @@ botao.innerHTML = `
     <rect x="9" y="9" width="13" height="13" rx="2"></rect>
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
 </svg>`;
-botao.title = "Copiar Script";
 
-botao.onclick = () => navigator.clipboard.writeText(texto);
+                    botao.onclick = (e) => {
+                        e.stopPropagation();
+                        copiarTexto(texto);
+                    };
 
-const pre = document.createElement("pre");
-pre.textContent = texto;
+                    const pre = document.createElement("pre");
+                    pre.textContent = texto;
 
-wrapper.appendChild(botao);
-wrapper.appendChild(pre);
+                    wrapper.appendChild(botao);
+                    wrapper.appendChild(pre);
 
-details.appendChild(wrapper);
-details.dataset.carregado = "1";
+                    details.appendChild(wrapper);
+                    details.dataset.carregado = "1";
+                } catch (erro) {
+                    const pre = document.createElement("pre");
+                    pre.textContent = "Erro ao carregar o arquivo: " + nomeArquivo;
+                    details.appendChild(pre);
+                    details.dataset.carregado = "1";
+                }
             });
 
             grupo.appendChild(details);
