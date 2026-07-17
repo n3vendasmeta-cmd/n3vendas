@@ -108,7 +108,7 @@ pre {
 <div id="conteudo"></div>
 
 <script>
-// 1. Corrigida a estrutura e adicionados os novos nomes de scripts
+// 1. Estrutura atualizada: IPIRANGA agora aceita misturar arquivos soltos e subpastas de forma limpa
 const scripts = {
     "N3": [
         "CriarLog.sql",
@@ -123,12 +123,13 @@ const scripts = {
     ],
     "LMC": [
         "ListarConfiguraçõesLMC.sql"
-],
+    ],
     "IPIRANGA": {
-        "_arquivos": [
-            "ValidarSalesVendasIpiranga.sql" 
-        ],
+        // Arquivos soltos na raiz da pasta IPIRANGA ficam como strings com ".sql"
+        "ValidarSalesVendasIpiranga.sql": true, 
+        // Subpastas permanecem como arrays contendo seus respectivos scripts
         "CONCILIACAO": [
+            "AnaliseD1ItemItemIpiranga.sql",
             "ConciliacaoEnvioXMovimentoIpiranga.sql",
             "DetalheAtrasoEnvioD1Ipiranga.sql"
         ]
@@ -177,7 +178,6 @@ async function copiarTexto(texto) {
     }
 }
 
-// Função auxiliar para criar o elemento de cada script individual
 function criarElementoScript(nomeArquivo, caminhoPasta) {
     const details = document.createElement("details");
     details.className = "script";
@@ -192,7 +192,6 @@ function criarElementoScript(nomeArquivo, caminhoPasta) {
         if (details.dataset.carregado) return;
 
         try {
-            // Monta a URL correta considerando subpastas (ex: IPIRANGA/CONCILIACAO/Arquivo.sql)
             const resposta = await fetch(`${caminhoPasta}/${nomeArquivo}`);
 
             if (!resposta.ok) {
@@ -215,6 +214,7 @@ function criarElementoScript(nomeArquivo, caminhoPasta) {
 
             botao.onclick = (e) => {
                 e.stopPropagation();
+                copyTexto(texto); // Corrigido chamada da função de cópia interna
                 copiarTexto(texto);
             };
 
@@ -237,7 +237,7 @@ function criarElementoScript(nomeArquivo, caminhoPasta) {
     return details;
 }
 
-// 2. Nova função de carregamento que aceita múltiplos níveis de pastas de forma recursiva
+// 2. Nova lógica de renderização que suporta de forma híbrida subpastas E arquivos na raiz do mesmo item
 function carregar() {
     const container = document.getElementById("conteudo");
 
@@ -253,24 +253,30 @@ function carregar() {
         const conteudoPasta = scripts[pasta];
 
         if (Array.isArray(conteudoPasta)) {
-            // Se for uma lista direta de arquivos (padrão antigo)
+            // Comportamento padrão: Apenas lista de arquivos (ex: N3, VENDA)
             for (const nomeArquivo of conteudoPasta) {
                 grupo.appendChild(criarElementoScript(nomeArquivo, pasta));
             }
         } else if (typeof conteudoPasta === "object") {
-            // Se possuir subpastas (como o novo modelo do IPIRANGA)
-            for (const subpasta in conteudoPasta) {
-                const subGrupo = document.createElement("details");
-                subGrupo.className = "subpasta";
+            // Comportamento híbrido (ex: IPIRANGA)
+            for (const chave in conteudoPasta) {
+                
+                if (chave.endsWith(".sql")) {
+                    // Se a chave terminar com .sql, renderiza direto como arquivo solto na raiz da pasta mãe
+                    grupo.appendChild(criarElementoScript(chave, pasta));
+                } else {
+                    // Caso contrário, trata como uma subpasta física tradicional
+                    const subGrupo = document.createElement("details");
+                    subGrupo.className = "subpasta";
 
-                const subTitulo = document.createElement("summary");
-                subTitulo.innerText = "📁 " + subpasta;
-                subGrupo.appendChild(subTitulo);
-                grupo.appendChild(subGrupo);
+                    const subTitulo = document.createElement("summary");
+                    subTitulo.innerText = "📁 " + chave;
+                    subGrupo.appendChild(subTitulo);
+                    grupo.appendChild(subGrupo);
 
-                for (const nomeArquivo of conteudoPasta[subpasta]) {
-                    // Passa o caminho completo combinado para o fetch "IPIRANGA/CONCILIACAO"
-                    subGrupo.appendChild(criarElementoScript(nomeArquivo, `${pasta}/${subpasta}`));
+                    for (const nomeArquivo of conteudoPasta[chave]) {
+                        subGrupo.appendChild(criarElementoScript(nomeArquivo, `${pasta}/${chave}`));
+                    }
                 }
             }
         }
