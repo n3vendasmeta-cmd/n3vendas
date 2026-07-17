@@ -32,6 +32,15 @@ body {
     padding: 8px;
 }
 
+.subpasta {
+    margin-left: 20px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background: #fcfcfc;
+    border-left: 3px solid #007bff;
+    padding-left: 5px;
+}
+
 .script {
     margin-left: 20px;
 }
@@ -41,6 +50,11 @@ summary {
     font-weight: bold;
     font-size: 18px;
     padding: 6px;
+}
+
+.subpasta > summary {
+    font-size: 16px;
+    color: #333;
 }
 
 pre {
@@ -94,6 +108,7 @@ pre {
 <div id="conteudo"></div>
 
 <script>
+// 1. Corrigida a estrutura e adicionados os novos nomes de scripts
 const scripts = {
     "N3": [
         "CriarLog.sql",
@@ -110,9 +125,9 @@ const scripts = {
         "ListarConfiguraçõesLMC.sql"
     ],
     "IPIRANGA": {
-        "ValidarSalesVendasIpiranga.sql"
         "CONCILIACAO": [
-            "ConciliacaoEnvioXMovimentoIpiranga.sql"
+            "ConciliacaoEnvioXMovimentoIpiranga.sql",
+            "DetalheAtrasoEnvioD1Ipiranga.sql"
         ]
     }
 };
@@ -159,7 +174,68 @@ async function copiarTexto(texto) {
     }
 }
 
-async function carregar() {
+// Função auxiliar para criar o elemento de cada script individual
+function criarElementoScript(nomeArquivo, caminhoPasta) {
+    const details = document.createElement("details");
+    details.className = "script";
+
+    const summary = document.createElement("summary");
+    summary.innerText = "📄 " + nomeArquivo;
+
+    details.appendChild(summary);
+
+    details.addEventListener("toggle", async () => {
+        if (!details.open) return;
+        if (details.dataset.carregado) return;
+
+        try {
+            // Monta a URL correta considerando subpastas (ex: IPIRANGA/CONCILIACAO/Arquivo.sql)
+            const resposta = await fetch(`${caminhoPasta}/${nomeArquivo}`);
+
+            if (!resposta.ok) {
+                throw new Error("Arquivo não encontrado");
+            }
+
+            const texto = await resposta.text();
+
+            const wrapper = document.createElement("div");
+            wrapper.style.position = "relative";
+
+            const botao = document.createElement("button");
+            botao.className = "btn-copiar";
+            botao.title = "Copiar Script";
+            botao.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>`;
+
+            botao.onclick = (e) => {
+                e.stopPropagation();
+                copiarTexto(texto);
+            };
+
+            const pre = document.createElement("pre");
+            pre.textContent = texto;
+
+            wrapper.appendChild(botao);
+            wrapper.appendChild(pre);
+
+            details.appendChild(wrapper);
+            details.dataset.carregado = "1";
+        } catch (erro) {
+            const pre = document.createElement("pre");
+            pre.textContent = "Erro ao carregar o arquivo: " + nomeArquivo;
+            details.appendChild(pre);
+            details.dataset.carregado = "1";
+        }
+    });
+
+    return details;
+}
+
+// 2. Nova função de carregamento que aceita múltiplos níveis de pastas de forma recursiva
+function carregar() {
     const container = document.getElementById("conteudo");
 
     for (const pasta in scripts) {
@@ -168,72 +244,32 @@ async function carregar() {
 
         const titulo = document.createElement("summary");
         titulo.innerText = "📁 " + pasta;
-
         grupo.appendChild(titulo);
         container.appendChild(grupo);
 
-        for (const nomeArquivo of scripts[pasta]) {
-            const details = document.createElement("details");
-            details.className = "script";
+        const conteudoPasta = scripts[pasta];
 
-            const summary = document.createElement("summary");
-            summary.innerText = "📄 " + nomeArquivo;
+        if (Array.isArray(conteudoPasta)) {
+            // Se for uma lista direta de arquivos (padrão antigo)
+            for (const nomeArquivo of conteudoPasta) {
+                grupo.appendChild(criarElementoScript(nomeArquivo, pasta));
+            }
+        } else if (typeof conteudoPasta === "object") {
+            // Se possuir subpastas (como o novo modelo do IPIRANGA)
+            for (const subpasta in conteudoPasta) {
+                const subGrupo = document.createElement("details");
+                subGrupo.className = "subpasta";
 
-            details.appendChild(summary);
+                const subTitulo = document.createElement("summary");
+                subTitulo.innerText = "📁 " + subpasta;
+                subGrupo.appendChild(subTitulo);
+                grupo.appendChild(subGrupo);
 
-            details.addEventListener("toggle", async () => {
-                if (!details.open) return;
-                if (details.dataset.carregado) return;
-
-                try {
-                    const resposta = await fetch(`${pasta}/${nomeArquivo}`);
-
-                    if (!resposta.ok) {
-                        throw new Error("Arquivo não encontrado");
-                    }
-
-                    const texto = await resposta.text();
-
-                    const wrapper = document.createElement("div");
-                    wrapper.style.position = "relative";
-
-                    const botao = document.createElement("button");
-                    botao.className = "btn-copiar";
-                    botao.title = "Copiar Script";
-                    botao.innerHTML = `
-<svg xmlns="http://www.w3.org/2000/svg"
-     width="16"
-     height="16"
-     viewBox="0 0 24 24"
-     fill="none"
-     stroke="currentColor"
-     stroke-width="2">
-    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-</svg>`;
-
-                    botao.onclick = (e) => {
-                        e.stopPropagation();
-                        copiarTexto(texto);
-                    };
-
-                    const pre = document.createElement("pre");
-                    pre.textContent = texto;
-
-                    wrapper.appendChild(botao);
-                    wrapper.appendChild(pre);
-
-                    details.appendChild(wrapper);
-                    details.dataset.carregado = "1";
-                } catch (erro) {
-                    const pre = document.createElement("pre");
-                    pre.textContent = "Erro ao carregar o arquivo: " + nomeArquivo;
-                    details.appendChild(pre);
-                    details.dataset.carregado = "1";
+                for (const nomeArquivo of conteudoPasta[subpasta]) {
+                    // Passa o caminho completo combinado para o fetch "IPIRANGA/CONCILIACAO"
+                    subGrupo.appendChild(criarElementoScript(nomeArquivo, `${pasta}/${subpasta}`));
                 }
-            });
-
-            grupo.appendChild(details);
+            }
         }
     }
 }
