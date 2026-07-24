@@ -2,6 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Biblioteca SQL</title>
 
 <style>
@@ -63,6 +65,11 @@ pre {
     border-radius: 5px;
     overflow-x: auto;
     white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.script-wrapper {
+    position: relative;
 }
 
 .btn-copiar {
@@ -90,7 +97,8 @@ pre {
     border-radius: 6px;
     font-size: 14px;
     opacity: 0;
-    transition: opacity .3s;
+    pointer-events: none;
+    transition: opacity 0.3s;
     z-index: 9999;
 }
 
@@ -108,11 +116,11 @@ pre {
 <div id="conteudo"></div>
 
 <script>
-// 1. Estrutura atualizada: IPIRANGA agora aceita misturar arquivos soltos e subpastas de forma limpa
 const scripts = {
-    "BR:" [
-    "BRMania_ReconstituirPayloadJsonVendasEnviadas.sql"
+    "BR": [
+        "BRMania_ReconstituirPayloadJsonVendasEnviadas.sql"
     ],
+
     "N3": [
         "CriarLog.sql",
         "CriarTabelaBackup.sql",
@@ -122,24 +130,30 @@ const scripts = {
         "UsuarioSenhaHospedagem.sql",
         "NomeBranch.sql"
     ],
+
     "VENDA": [
         "ValidarMovimentacoesEstoqueEntreVendaOriginalEDevolucao.sql",
         "AbortarNFeNFCe.sql",
         "ComandaLocalPreparoPedido.sql",
         "ComandaLocalPreparoHistoricoItem.sql"
     ],
+
     "LMC": [
         "ListarConfiguraçõesLMC.sql"
     ],
+
     "IPIRANGA": {
-        // Arquivos soltos na raiz da pasta IPIRANGA ficam como strings com ".sql"
-        "ValidarSalesVendasIpiranga.sql": true, 
-        // Subpastas permanecem como arrays contendo seus respectivos scripts
-        "CONCILIACAO": [
-            "AnaliseD1ItemItemIpiranga.sql",
-            "ConciliacaoEnvioXMovimentoIpiranga.sql",
-            "DetalheAtrasoEnvioD1Ipiranga.sql"
-        ]
+        "arquivos": [
+            "ValidarSalesVendasIpiranga.sql"
+        ],
+
+        "subpastas": {
+            "CONCILIACAO": [
+                "AnaliseD1ItemItemIpiranga.sql",
+                "ConciliacaoEnvioXMovimentoIpiranga.sql",
+                "DetalheAtrasoEnvioD1Ipiranga.sql"
+            ]
+        }
     }
 };
 
@@ -169,16 +183,19 @@ async function copiarTexto(texto) {
         mostrarToast("✅ Script copiado com sucesso!");
     } catch {
         const textarea = document.createElement("textarea");
+
         textarea.value = texto;
         textarea.style.position = "fixed";
         textarea.style.left = "-9999px";
         textarea.style.top = "-9999px";
 
         document.body.appendChild(textarea);
+
         textarea.focus();
         textarea.select();
 
         document.execCommand("copy");
+
         document.body.removeChild(textarea);
 
         mostrarToast("✅ Script copiado com sucesso!");
@@ -190,40 +207,71 @@ function criarElementoScript(nomeArquivo, caminhoPasta) {
     details.className = "script";
 
     const summary = document.createElement("summary");
-    summary.innerText = "📄 " + nomeArquivo;
+    summary.textContent = "📄 " + nomeArquivo;
 
     details.appendChild(summary);
 
     details.addEventListener("toggle", async () => {
-        if (!details.open) return;
-        if (details.dataset.carregado) return;
+        if (!details.open) {
+            return;
+        }
+
+        if (details.dataset.carregado === "1") {
+            return;
+        }
 
         try {
-            const resposta = await fetch(`${caminhoPasta}/${nomeArquivo}`);
+            const caminhoArquivo = `${caminhoPasta}/${nomeArquivo}`;
+
+            const resposta = await fetch(caminhoArquivo);
 
             if (!resposta.ok) {
-                throw new Error("Arquivo não encontrado");
+                throw new Error(
+                    `Arquivo não encontrado. Caminho: ${caminhoArquivo}`
+                );
             }
 
             const texto = await resposta.text();
 
             const wrapper = document.createElement("div");
-            wrapper.style.position = "relative";
+            wrapper.className = "script-wrapper";
 
             const botao = document.createElement("button");
+            botao.type = "button";
             botao.className = "btn-copiar";
-            botao.title = "Copiar Script";
-            botao.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>`;
+            botao.title = "Copiar script";
+            botao.setAttribute("aria-label", "Copiar script");
 
-            botao.onclick = (e) => {
-                e.stopPropagation();
-                copyTexto(texto); // Corrigido chamada da função de cópia interna
+            botao.innerHTML = `
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <rect
+                        x="9"
+                        y="9"
+                        width="13"
+                        height="13"
+                        rx="2"
+                    ></rect>
+
+                    <path
+                        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                    ></path>
+                </svg>
+            `;
+
+            botao.addEventListener("click", (evento) => {
+                evento.preventDefault();
+                evento.stopPropagation();
+
                 copiarTexto(texto);
-            };
+            });
 
             const pre = document.createElement("pre");
             pre.textContent = texto;
@@ -232,11 +280,18 @@ function criarElementoScript(nomeArquivo, caminhoPasta) {
             wrapper.appendChild(pre);
 
             details.appendChild(wrapper);
+
             details.dataset.carregado = "1";
         } catch (erro) {
             const pre = document.createElement("pre");
-            pre.textContent = "Erro ao carregar o arquivo: " + nomeArquivo;
+            pre.textContent =
+                "Erro ao carregar o arquivo:\n\n" +
+                nomeArquivo +
+                "\n\n" +
+                erro.message;
+
             details.appendChild(pre);
+
             details.dataset.carregado = "1";
         }
     });
@@ -244,53 +299,84 @@ function criarElementoScript(nomeArquivo, caminhoPasta) {
     return details;
 }
 
-// 2. Nova lógica de renderização que suporta de forma híbrida subpastas E arquivos na raiz do mesmo item
+function criarSubpasta(nomeSubpasta, arquivos, pastaPrincipal) {
+    const subGrupo = document.createElement("details");
+    subGrupo.className = "subpasta";
+
+    const subTitulo = document.createElement("summary");
+    subTitulo.textContent = "📁 " + nomeSubpasta;
+
+    subGrupo.appendChild(subTitulo);
+
+    for (const nomeArquivo of arquivos) {
+        subGrupo.appendChild(
+            criarElementoScript(
+                nomeArquivo,
+                `${pastaPrincipal}/${nomeSubpasta}`
+            )
+        );
+    }
+
+    return subGrupo;
+}
+
 function carregar() {
     const container = document.getElementById("conteudo");
 
-    for (const pasta in scripts) {
+    container.innerHTML = "";
+
+    for (const nomePasta in scripts) {
         const grupo = document.createElement("details");
         grupo.className = "pasta";
 
         const titulo = document.createElement("summary");
-        titulo.innerText = "📁 " + pasta;
-        grupo.appendChild(titulo);
-        container.appendChild(grupo);
+        titulo.textContent = "📁 " + nomePasta;
 
-        const conteudoPasta = scripts[pasta];
+        grupo.appendChild(titulo);
+
+        const conteudoPasta = scripts[nomePasta];
 
         if (Array.isArray(conteudoPasta)) {
-            // Comportamento padrão: Apenas lista de arquivos (ex: N3, VENDA)
             for (const nomeArquivo of conteudoPasta) {
-                grupo.appendChild(criarElementoScript(nomeArquivo, pasta));
+                grupo.appendChild(
+                    criarElementoScript(
+                        nomeArquivo,
+                        nomePasta
+                    )
+                );
             }
-        } else if (typeof conteudoPasta === "object") {
-            // Comportamento híbrido (ex: IPIRANGA)
-            for (const chave in conteudoPasta) {
-                
-                if (chave.endsWith(".sql")) {
-                    // Se a chave terminar com .sql, renderiza direto como arquivo solto na raiz da pasta mãe
-                    grupo.appendChild(criarElementoScript(chave, pasta));
-                } else {
-                    // Caso contrário, trata como uma subpasta física tradicional
-                    const subGrupo = document.createElement("details");
-                    subGrupo.className = "subpasta";
+        } else if (
+            conteudoPasta !== null &&
+            typeof conteudoPasta === "object"
+        ) {
+            const arquivosRaiz = conteudoPasta.arquivos || [];
+            const subpastas = conteudoPasta.subpastas || {};
 
-                    const subTitulo = document.createElement("summary");
-                    subTitulo.innerText = "📁 " + chave;
-                    subGrupo.appendChild(subTitulo);
-                    grupo.appendChild(subGrupo);
+            for (const nomeArquivo of arquivosRaiz) {
+                grupo.appendChild(
+                    criarElementoScript(
+                        nomeArquivo,
+                        nomePasta
+                    )
+                );
+            }
 
-                    for (const nomeArquivo of conteudoPasta[chave]) {
-                        subGrupo.appendChild(criarElementoScript(nomeArquivo, `${pasta}/${chave}`));
-                    }
-                }
+            for (const nomeSubpasta in subpastas) {
+                grupo.appendChild(
+                    criarSubpasta(
+                        nomeSubpasta,
+                        subpastas[nomeSubpasta],
+                        nomePasta
+                    )
+                );
             }
         }
+
+        container.appendChild(grupo);
     }
 }
 
-carregar();
+document.addEventListener("DOMContentLoaded", carregar);
 </script>
 
 </body>
