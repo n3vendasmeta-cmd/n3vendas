@@ -393,29 +393,56 @@ function criarElementoScript(nomeArquivo, caminhoPasta) {
     return details;
 }
 
-function criarSubpasta(
-    nomeSubpasta,
-    arquivos,
-    pastaPrincipal
-) {
-    const subGrupo = document.createElement("details");
-    subGrupo.className = "subpasta";
 
-    const subTitulo = document.createElement("summary");
-    subTitulo.textContent = "📁 " + nomeSubpasta;
+function criarPasta(nomePasta, conteudoPasta, caminhoPasta, pastaPrincipal = false) {
+    const grupo = document.createElement("details");
 
-    subGrupo.appendChild(subTitulo);
+    grupo.className = pastaPrincipal ? "pasta" : "subpasta";
 
-    for (const nomeArquivo of arquivos) {
-        subGrupo.appendChild(
-            criarElementoScript(
-                nomeArquivo,
-                `${pastaPrincipal}/${nomeSubpasta}`
-            )
-        );
+    const titulo = document.createElement("summary");
+    titulo.textContent = "📁 " + nomePasta;
+    grupo.appendChild(titulo);
+
+    if (Array.isArray(conteudoPasta)) {
+        for (const nomeArquivo of conteudoPasta) {
+            grupo.appendChild(
+                criarElementoScript(
+                    nomeArquivo,
+                    caminhoPasta
+                )
+            );
+        }
+
+        return grupo;
     }
 
-    return subGrupo;
+    if (conteudoPasta && typeof conteudoPasta === "object") {
+
+        const arquivos = conteudoPasta.arquivos || [];
+        const subpastas = conteudoPasta.subpastas || {};
+
+        for (const nomeArquivo of arquivos) {
+            grupo.appendChild(
+                criarElementoScript(
+                    nomeArquivo,
+                    caminhoPasta
+                )
+            );
+        }
+
+        for (const nomeSubpasta in subpastas) {
+            grupo.appendChild(
+                criarPasta(
+                    nomeSubpasta,
+                    subpastas[nomeSubpasta],
+                    `${caminhoPasta}/${nomeSubpasta}`,
+                    false
+                )
+            );
+        }
+    }
+
+    return grupo;
 }
 
 function carregar() {
@@ -424,58 +451,17 @@ function carregar() {
     container.innerHTML = "";
 
     for (const nomePasta in scripts) {
-        const grupo = document.createElement("details");
-        grupo.className = "pasta";
-
-        const titulo = document.createElement("summary");
-        titulo.textContent = "📁 " + nomePasta;
-
-        grupo.appendChild(titulo);
-
-        const conteudoPasta = scripts[nomePasta];
-
-        if (Array.isArray(conteudoPasta)) {
-            for (const nomeArquivo of conteudoPasta) {
-                grupo.appendChild(
-                    criarElementoScript(
-                        nomeArquivo,
-                        nomePasta
-                    )
-                );
-            }
-        } else if (
-            conteudoPasta !== null &&
-            typeof conteudoPasta === "object"
-        ) {
-            const arquivosRaiz =
-                conteudoPasta.arquivos || [];
-
-            const subpastas =
-                conteudoPasta.subpastas || {};
-
-            for (const nomeArquivo of arquivosRaiz) {
-                grupo.appendChild(
-                    criarElementoScript(
-                        nomeArquivo,
-                        nomePasta
-                    )
-                );
-            }
-
-            for (const nomeSubpasta in subpastas) {
-                grupo.appendChild(
-                    criarSubpasta(
-                        nomeSubpasta,
-                        subpastas[nomeSubpasta],
-                        nomePasta
-                    )
-                );
-            }
-        }
-
-        container.appendChild(grupo);
+        container.appendChild(
+            criarPasta(
+                nomePasta,
+                scripts[nomePasta],
+                nomePasta,
+                true
+            )
+        );
     }
 }
+
 
 document.addEventListener(
     "DOMContentLoaded",
