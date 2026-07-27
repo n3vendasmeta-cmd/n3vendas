@@ -158,12 +158,31 @@ pre {
 
 <script>
 const scripts = {
-    "BR": [
-        "BRMania_ReconstituirPayloadJsonVendasEnviadas.sql"
-    ],
-    "SHELL SELECT": [
-        "DiferencaTotalRelatorioVsEnviado.sql"
-    ],
+    "INTEGRAÇÃO": {
+        subpastas: {
+            "BR": [
+                "BRMania_ReconstituirPayloadJsonVendasEnviadas.sql"
+            ],
+
+            "SHELL SELECT": [
+                "DiferencaTotalRelatorioVsEnviado.sql"
+            ],
+
+            "IPIRANGA": {
+                arquivos: [
+                    "ValidarSalesVendasIpiranga.sql"
+                ],
+
+                subpastas: {
+                    "CONCILIACAO": [
+                        "AnaliseD1ItemItemIpiranga.sql",
+                        "ConciliacaoEnvioXMovimentoIpiranga.sql",
+                        "DetalheAtrasoEnvioD1Ipiranga.sql"
+                    ]
+                }
+            }
+        }
+    },
 
     "N3": [
         "CriarLog.sql",
@@ -184,23 +203,8 @@ const scripts = {
 
     "LMC": [
         "ListarConfiguraçõesLMC.sql"
-    ],
-
-    "IPIRANGA": {
-        "arquivos": [
-            "ValidarSalesVendasIpiranga.sql"
-        ],
-
-        "subpastas": {
-            "CONCILIACAO": [
-                "AnaliseD1ItemItemIpiranga.sql",
-                "ConciliacaoEnvioXMovimentoIpiranga.sql",
-                "DetalheAtrasoEnvioD1Ipiranga.sql"
-            ]
-        }
-    }
+    ]
 };
-
 const iconeCopiar = `
     <svg
         xmlns="http://www.w3.org/2000/svg"
