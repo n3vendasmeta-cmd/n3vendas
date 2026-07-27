@@ -1,8 +1,12 @@
-/*1 - LMC IMPRESSO
+/*
+Analise_LMC_PerdasGanhos_PorDia.sql
+
+1 - LMC IMPRESSO
 Mostra se existe LMC gravado para empresa/combustível/data e quando foi impresso.
 
 2 - CALCULO ATUAL LMC
-Mostra o recálculo atual do banco para perda/ganho.
+Mostra o recálculo atual do banco para perda/ganho, incluindo estoque fechamento,
+estoque esperado e diferença atual.
 
 3 - AJUSTES REGUA/TANQUE
 Mostra os lançamentos de variação de temperatura/régua por tanque.
@@ -38,10 +42,11 @@ SELECT
     '2 - CALCULO ATUAL LMC' AS Evidencia,
     EstoqueInicialDia,
     VolumeRecebidoDia,
-    MedicaoFinal AS EstoqueFechamentoAtual,
-    VariacaoEstoqueDia,
     SaidaBombaDia,
-    SobrasFaltasDia AS PerdaGanhoAtual,
+    MedicaoFinal AS EstoqueFechamentoAtual,
+    CAST(EstoqueInicialDia + VolumeRecebidoDia - SaidaBombaDia AS DECIMAL(18,3)) AS EstoqueEsperado,
+    CAST(MedicaoFinal - (EstoqueInicialDia + VolumeRecebidoDia - SaidaBombaDia) AS DECIMAL(18,3)) AS PerdaGanhoAtual,
+    AfericaoDia,
     Combustivel
 FROM dbo.FN_PST_Relatorio0029_PerdasGanhosCombustivel
 (
