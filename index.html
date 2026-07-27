@@ -394,13 +394,19 @@ function criarElementoScript(nomeArquivo, caminhoPasta) {
 }
 
 
-function criarPasta(nomePasta, conteudoPasta, caminhoPasta, pastaPrincipal = false) {
+function criarPasta(
+    nomePasta,
+    conteudoPasta,
+    caminhoPasta,
+    pastaPrincipal = false
+) {
     const grupo = document.createElement("details");
 
     grupo.className = pastaPrincipal ? "pasta" : "subpasta";
 
     const titulo = document.createElement("summary");
     titulo.textContent = "📁 " + nomePasta;
+
     grupo.appendChild(titulo);
 
     if (Array.isArray(conteudoPasta)) {
@@ -417,7 +423,6 @@ function criarPasta(nomePasta, conteudoPasta, caminhoPasta, pastaPrincipal = fal
     }
 
     if (conteudoPasta && typeof conteudoPasta === "object") {
-
         const arquivos = conteudoPasta.arquivos || [];
         const subpastas = conteudoPasta.subpastas || {};
 
@@ -431,11 +436,16 @@ function criarPasta(nomePasta, conteudoPasta, caminhoPasta, pastaPrincipal = fal
         }
 
         for (const nomeSubpasta in subpastas) {
+            const proximoCaminho =
+                nomePasta === "INTEGRAÇÃO"
+                    ? nomeSubpasta
+                    : `${caminhoPasta}/${nomeSubpasta}`;
+
             grupo.appendChild(
                 criarPasta(
                     nomeSubpasta,
                     subpastas[nomeSubpasta],
-                    `${caminhoPasta}/${nomeSubpasta}`,
+                    proximoCaminho,
                     false
                 )
             );
