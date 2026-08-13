@@ -1,0 +1,4 @@
+-- Alterar o CNPJ
+-- Alterar o identificador, pegar no controle
+
+http://ca.metaposto.com.br:8083/metaprot/statuslicensemetanetpay/26343380000231/a244c090-925b-11f1-a8cd-43894df86137
