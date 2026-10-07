@@ -1,0 +1,26 @@
+1) No caixa, abrir PowerShell como Administrador
+Tecla Windows → digite PowerShell
+Botão direito → Executar como administrador
+
+2) Rodar os comandos
+New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\PDV.exe" -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\PDV.exe" -Name DumpFolder -Value "C:\DumpsPDV" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\PDV.exe" -Name DumpType -Value 2 -PropertyType DWord -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\PDV.exe" -Name DumpCount -Value 5 -PropertyType DWord -Force | Out-Null
+New-Item -ItemType Directory -Path "C:\DumpsPDV" -Force | Out-Null
+
+3) Conferir se ficou ok
+Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\PDV.exe"
+Test-Path "C:\DumpsPDV"
+Deve mostrar DumpFolder = C:\DumpsPDV, DumpType = 2, DumpCount = 5 e True na pasta.
+
+4) Esperar o próximo crash
+Deixar o PDV em uso normal.
+Válido para:
+OutOfMemoryException
+exception .NET sem tratamento
+Application Error / falha do processo
+
+5) Depois que fechar sozinho
+Abrir C:\DumpsPDV
+Pegar o arquivo .dmp (data/hora do crash)
