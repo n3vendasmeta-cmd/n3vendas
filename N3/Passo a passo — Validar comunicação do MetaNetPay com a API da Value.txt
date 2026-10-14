@@ -1,0 +1,32 @@
+Validar comunicação do MetaNetPay com a API da Value
+
+1) Confirmar a rede utilizada
+Verificar se o dispositivo do MetaNetPay está no Wi-Fi ou chip de dados.
+Realizar o teste em um computador conectado à mesma rede.
+
+2) Abrir o PowerShell
+Tecla Windows → digite PowerShell → abrir.
+Não precisa executar como administrador.
+
+3) Verificar o DNS
+Resolve-DnsName api.value4u.com.br
+
+Deve retornar um endereço em IPAddress.
+→ Retornou IP: DNS funcionando.
+→ Apresentou erro: investigar DNS ou conexão de rede.
+
+4) Verificar a conexão HTTPS
+Test-NetConnection api.value4u.com.br -Port 443
+
+Conferir o campo TcpTestSucceeded.
+→ True: conexão com a porta 443 funcionando.
+→ False: investigar rede, firewall, rota ou disponibilidade do destino.
+5) Verificar se a API responde
+curl.exe -v --connect-timeout 15 --max-time 30 "https://api.value4u.com.br/v1/mobile/Account/validateSsn"
+
+Para esse teste, a resposta esperada é:
+HTTP/1.1 405 Method Not Allowed
+Allow: POST
+
+→ 405 + Allow: POST: houve comunicação; o endpoint exige POST e o teste enviou GET.
+→ Timeout: a conexão ou resposta não foi concluída dentro do prazo.
