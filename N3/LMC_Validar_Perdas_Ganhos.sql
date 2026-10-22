@@ -1,14 +1,13 @@
-/* Diagnostico SOMENTE LEITURA - executar no banco 26850171000101.
-   Nao recalcula, nao estorna e nao altera dados.
+/* Nao recalcula, nao estorna e nao altera dados.
    Positivo = entrada/ganho; negativo = saida/perda.
    Ajustes de regua sao classificados pelo sistema como variacao de temperatura;
    essa classificacao nao comprova a causa fisica da diferenca.
    Os resultados mostram o estado ATUAL do banco, nao o estado de prints antigos.
 */
-DECLARE @Empresa bigint = 21591;       -- POSTO CACIQUE 33
-DECLARE @Combustivel bigint = 5046;    -- DIESEL S10 ADITIVADO
+DECLARE @Empresa bigint = 21591;       
+DECLARE @Combustivel bigint = 5046;    
 DECLARE @Inicio date = '20261001';
-DECLARE @Fim date = '20261002';        -- inclusivo
+DECLARE @Fim date = '20261002';        
 
 -- 1. Origem por documento/tanque e soma do dia.
 -- Mesmo criterio de ajuste usado por FN_PST_ObterReguasLancadasPorTanque.
