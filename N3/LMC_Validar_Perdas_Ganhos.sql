@@ -1,138 +1,90 @@
--- Motivo do perdas e ganhos (LMC)
--- 1) resumo do dia  2) documentos que geraram a diferença
+/* Diagnostico SOMENTE LEITURA - executar no banco 26850171000101.
+   Nao recalcula, nao estorna e nao altera dados.
+   Positivo = entrada/ganho; negativo = saida/perda.
+   Ajustes de regua sao classificados pelo sistema como variacao de temperatura;
+   essa classificacao nao comprova a causa fisica da diferenca.
+   Os resultados mostram o estado ATUAL do banco, nao o estado de prints antigos.
+*/
+DECLARE @Empresa bigint = 21591;       -- POSTO CACIQUE 33
+DECLARE @Combustivel bigint = 5046;    -- DIESEL S10 ADITIVADO
+DECLARE @Inicio date = '20261001';
+DECLARE @Fim date = '20261002';        -- inclusivo
 
-DECLARE @idEmpresa     BIGINT = 31769;
-DECLARE @data          DATE   = '20231025';
-DECLARE @idCombustivel BIGINT = 3053;     -- ETANOL; NULL = todos
+-- 1. Origem por documento/tanque e soma do dia.
+-- Mesmo criterio de ajuste usado por FN_PST_ObterReguasLancadasPorTanque.
+SELECT
+    e.DataMovimentacao AS DataMovimento,
+    t.Numero AS Tanque,
+    d.Id AS IdDocumento,
+    d.Numero AS Documento,
+    i.Id AS IdItem,
+    e.Id AS IdMovimentoEstoque,
+    CASE e.Fluxo WHEN 0 THEN 'Entrada / ganho' ELSE 'Saida / perda' END AS Fluxo,
+    e.Quantidade AS Litros,
+    CASE e.Fluxo WHEN 0 THEN e.Quantidade ELSE -e.Quantidade END AS PerdaGanhoLitros,
+    SUM(CASE e.Fluxo WHEN 0 THEN e.Quantidade ELSE -e.Quantidade END)
+        OVER (PARTITION BY CONVERT(date,e.DataMovimentacao)) AS TotalPerdaGanhoDia,
+    a.TipoAjusteEstoque, a.MotivoAjuste,
+    d.DataRegistro AS RegistroDocumento,
+    e.DataRegistro AS RegistroMovimentoEstoque,
+    u.Login AS UltimoUsuarioDocumento,
+    d.Ativo, d.Status
+FROM dbo.EST_EstoqueFisicoAnalitico e
+JOIN dbo.PST_Tanque t ON t.Id=e.IdLocalEstoque
+JOIN dbo.FAT_ItemDocumentoFiscal i ON i.Id=e.ItemDocumentoOrigem
+JOIN dbo.FAT_DocumentoFiscal d ON d.Id=i.IdDocumentoFiscal
+JOIN dbo.EST_AjusteEstoque a ON a.Id=d.Id
+LEFT JOIN dbo.ACS_Usuario u ON u.Id=d.IdUltimoUsuario
+WHERE e.IdEmpresa=@Empresa AND e.IdMercadoria=@Combustivel
+  AND e.DataMovimentacao>=@Inicio AND e.DataMovimentacao<DATEADD(day,1,@Fim)
+  AND d.TipoDocumento=4 AND a.TipoAjusteEstoque IN (0,3)
+ORDER BY e.DataMovimentacao,t.Numero,d.Id;
 
-;WITH Mov AS
-(
-    SELECT
-        e.IdEmpresa,
-        e.IdMercadoria,
-        e.IdLocalEstoque,
-        CONVERT(DATE, e.DataMovimentacao) AS Data,
-        e.DocumentoOrigem,
-        e.Fluxo,
-        e.Quantidade,
-        df.DataMovimentacao AS DataDocumento,
-        CASE
-            WHEN e.DocumentoOrigem LIKE 'AJ%' THEN 'AJUSTE_REGUA'
-            WHEN df.Id IS NOT NULL
-             AND CONVERT(DATE, df.DataMovimentacao) <> CONVERT(DATE, e.DataMovimentacao)
-            THEN 'NOTA_DATA_DIFERENTE'
-            WHEN df.Id IS NOT NULL THEN 'NOTA_MESMO_DIA'
-            ELSE 'OUTRO'
-        END AS Tipo
-    FROM EST_EstoqueFisicoAnalitico e
-    OUTER APPLY
-    (
-        SELECT TOP 1 df2.Id, df2.DataMovimentacao
-        FROM FAT_DocumentoFiscal df2
-        WHERE df2.IdEmpresa = e.IdEmpresa
-          AND df2.Numero = e.DocumentoOrigem
-        ORDER BY ABS(DATEDIFF(DAY, df2.DataMovimentacao, e.DataMovimentacao)), df2.Id
-    ) df
-    WHERE e.IdEmpresa = @idEmpresa
-      AND CONVERT(DATE, e.DataMovimentacao) = @data
-      AND (@idCombustivel IS NULL OR e.IdMercadoria = @idCombustivel)
-),
-Dia AS
-(
-    SELECT
-        IdEmpresa,
-        IdMercadoria,
-        IdLocalEstoque,
-        Data,
-        SUM(CASE WHEN Fluxo = 0 AND Tipo = 'NOTA_DATA_DIFERENTE' THEN Quantidade ELSE 0 END) AS NotaDataErradaEntrada,
-        SUM(CASE WHEN Fluxo = 1 AND Tipo = 'NOTA_DATA_DIFERENTE' THEN Quantidade ELSE 0 END) AS NotaDataErradaSaida,
-        SUM(CASE WHEN Fluxo = 0 AND Tipo = 'AJUSTE_REGUA' THEN Quantidade ELSE 0 END) AS AjusteEntrada,
-        SUM(CASE WHEN Fluxo = 1 AND Tipo = 'AJUSTE_REGUA' THEN Quantidade ELSE 0 END) AS AjusteSaida,
-        SUM(CASE WHEN Fluxo = 0 AND Tipo = 'NOTA_MESMO_DIA' THEN Quantidade ELSE 0 END) AS NotaLivroEntrada,
-        SUM(CASE WHEN Fluxo = 1 AND Tipo <> 'AJUSTE_REGUA' THEN Quantidade ELSE 0 END) AS SaidaSemAjuste
-    FROM Mov
-    GROUP BY IdEmpresa, IdMercadoria, IdLocalEstoque, Data
+-- 2. Conciliacao do estoque: saldo atual menos ajustes de regua = saldo sem regua.
+-- Essa prova contabil NAO substitui a apuracao independente das vendas do LMC.
+-- Permite conferir se o total dos ajustes explica a diferenca vista na tela.
+;WITH Ajustes AS (
+    SELECT CONVERT(date,e.DataMovimentacao) AS Dia,
+           SUM(CASE e.Fluxo WHEN 0 THEN e.Quantidade ELSE -e.Quantidade END) AS Regua
+    FROM dbo.EST_EstoqueFisicoAnalitico e
+    JOIN dbo.FAT_ItemDocumentoFiscal i ON i.Id=e.ItemDocumentoOrigem
+    JOIN dbo.FAT_DocumentoFiscal d ON d.Id=i.IdDocumentoFiscal
+    JOIN dbo.EST_AjusteEstoque a ON a.Id=d.Id
+    WHERE e.IdEmpresa=@Empresa AND e.IdMercadoria=@Combustivel
+      AND e.DataMovimentacao>=@Inicio AND e.DataMovimentacao<DATEADD(day,1,@Fim)
+      AND d.TipoDocumento=4 AND a.TipoAjusteEstoque IN (0,3)
+    GROUP BY CONVERT(date,e.DataMovimentacao)
+), Saldos AS (
+    SELECT DataMovimentacao AS Dia,SUM(SaldoTanque) AS Saldo
+    FROM dbo.FN_EST_PegarSaldoMercadoriaPorIdComDadosDoTanqueLMC_PorPeriodo(
+         CONVERT(varchar(30),@Combustivel),@Inicio,@Fim,@Empresa)
+    GROUP BY DataMovimentacao
 )
-SELECT
-    'RESUMO' AS Parte,
-    d.Data,
-    t.Numero AS Tanque,
-    m.Id AS IdCombustivel,
-    m.Descricao AS Combustivel,
-    CAST(NULL AS VARCHAR(30)) AS Documento,
-    CAST(NULL AS VARCHAR(30)) AS Tipo,
-    CAST(NULL AS DATE) AS DataDocumento,
-    dbo.FN_EST_PegarSaldoMercadoriaPorDataLocal(d.IdEmpresa, d.IdMercadoria, DATEADD(DAY, -1, d.Data), d.IdLocalEstoque) AS Abertura,
-    dbo.FN_EST_PegarSaldoMercadoriaPorDataLocal(d.IdEmpresa, d.IdMercadoria, d.Data, d.IdLocalEstoque) AS Fechamento,
-    dbo.FN_EST_PegarSaldoMercadoriaPorDataLocal(d.IdEmpresa, d.IdMercadoria, DATEADD(DAY, -1, d.Data), d.IdLocalEstoque)
-      + d.NotaLivroEntrada
-      - d.SaidaSemAjuste AS Escritural,
-    dbo.FN_EST_PegarSaldoMercadoriaPorDataLocal(d.IdEmpresa, d.IdMercadoria, d.Data, d.IdLocalEstoque)
-      - (
-            dbo.FN_EST_PegarSaldoMercadoriaPorDataLocal(d.IdEmpresa, d.IdMercadoria, DATEADD(DAY, -1, d.Data), d.IdLocalEstoque)
-          + d.NotaLivroEntrada
-          - d.SaidaSemAjuste
-        ) AS PerdasGanhos,
-    d.NotaDataErradaEntrada - d.NotaDataErradaSaida AS EfeitoNotaDataErrada,
-    d.AjusteEntrada - d.AjusteSaida AS EfeitoAjusteRegua,
-    CASE
-        WHEN (d.NotaDataErradaEntrada + d.NotaDataErradaSaida) > 0
-         AND (d.AjusteEntrada + d.AjusteSaida) > 0
-        THEN 'Nota com data diferente no estoque + ajuste de régua (AJ)'
-        WHEN (d.NotaDataErradaEntrada + d.NotaDataErradaSaida) > 0
-        THEN 'Nota no estoque em data diferente do documento'
-        WHEN (d.AjusteEntrada + d.AjusteSaida) > 0
-        THEN 'Ajuste de régua (AJ) — o livro não usa na conta'
-        ELSE 'Outro movimento no tanque que o livro não usa'
-    END AS Motivo
-FROM Dia d
-INNER JOIN PST_Tanque t ON t.Id = d.IdLocalEstoque
-INNER JOIN CAD_Mercadoria m ON m.Id = d.IdMercadoria
+SELECT s.Dia,
+       anterior.Saldo AS EstoqueInicial,
+       s.Saldo-COALESCE(a.Regua,0) AS SaldoCalculadoSemAjustesReguaDoDia,
+       s.Saldo AS EstoqueFechamentoAtual,
+       COALESCE(a.Regua,0) AS TotalPerdasGanhosRegua,
+       'Conferir este total com Perdas e Ganhos da tela atualizada' AS Validacao
+FROM Saldos s
+LEFT JOIN Saldos anterior ON anterior.Dia=DATEADD(day,-1,s.Dia)
+LEFT JOIN Ajustes a ON a.Dia=s.Dia
+WHERE s.Dia BETWEEN @Inicio AND @Fim
+ORDER BY s.Dia;
 
-UNION ALL
-
-SELECT
-    'DETALHE' AS Parte,
-    CONVERT(DATE, e.DataMovimentacao) AS Data,
-    t.Numero AS Tanque,
-    m.Id AS IdCombustivel,
-    m.Descricao AS Combustivel,
-    e.DocumentoOrigem AS Documento,
-    CASE
-        WHEN e.DocumentoOrigem LIKE 'AJ%' THEN 'AJUSTE_REGUA'
-        WHEN CONVERT(DATE, df.DataMovimentacao) <> CONVERT(DATE, e.DataMovimentacao) THEN 'NOTA_DATA_DIFERENTE'
-        ELSE 'LIVRO'
-    END AS Tipo,
-    CONVERT(DATE, df.DataMovimentacao) AS DataDocumento,
-    NULL, NULL, NULL, NULL, NULL, NULL,
-    CASE
-        WHEN e.DocumentoOrigem LIKE 'AJ%'
-        THEN 'Entra no tanque, não entra no livro | efeito '
-           + CONVERT(VARCHAR(20), CASE WHEN e.Fluxo = 0 THEN e.Quantidade ELSE -e.Quantidade END)
-        WHEN CONVERT(DATE, df.DataMovimentacao) <> CONVERT(DATE, e.DataMovimentacao)
-        THEN 'Estoque ' + CONVERT(VARCHAR(10), e.DataMovimentacao, 103)
-           + ' / documento ' + CONVERT(VARCHAR(10), df.DataMovimentacao, 103)
-           + ' | efeito '
-           + CONVERT(VARCHAR(20), CASE WHEN e.Fluxo = 0 THEN e.Quantidade ELSE -e.Quantidade END)
-        ELSE 'Livro e tanque no mesmo dia'
-    END AS Motivo
-FROM EST_EstoqueFisicoAnalitico e
-INNER JOIN PST_Tanque t ON t.Id = e.IdLocalEstoque
-INNER JOIN CAD_Mercadoria m ON m.Id = e.IdMercadoria
-OUTER APPLY
-(
-    SELECT TOP 1 df2.DataMovimentacao
-    FROM FAT_DocumentoFiscal df2
-    WHERE df2.IdEmpresa = e.IdEmpresa
-      AND df2.Numero = e.DocumentoOrigem
-    ORDER BY ABS(DATEDIFF(DAY, df2.DataMovimentacao, e.DataMovimentacao)), df2.Id
-) df
-WHERE e.IdEmpresa = @idEmpresa
-  AND CONVERT(DATE, e.DataMovimentacao) = @data
-  AND (@idCombustivel IS NULL OR e.IdMercadoria = @idCombustivel)
-  AND (
-        e.DocumentoOrigem LIKE 'AJ%'
-     OR CONVERT(DATE, df.DataMovimentacao) <> CONVERT(DATE, e.DataMovimentacao)
-      )
-
-ORDER BY Parte DESC, Tanque, Documento;
+-- 3. Valores informados no lancamento de regua e saldo atual de cada tanque.
+-- Divergencia pode ocorrer por movimentacoes posteriores/retroativas.
+-- Historico pode conter mais de um lancamento por tanque/dia: nao somar cegamente.
+SELECT h.Id AS IdHistorico, h.DataMovimento, t.Numero AS Tanque,
+       h.DataRegistro, h.ValorLancamento AS VolumeInformadoRegua,
+       h.ValorEstornado,
+       s.SaldoTanque AS SaldoAtualTanque,
+       s.SaldoTanque-h.ValorLancamento AS DiferencaSaldoAtualParaVolumeInformado
+FROM dbo.EST_HistoricoLancamentoDiarioRegua h
+JOIN dbo.PST_Tanque t ON t.Id=h.IdTanque
+LEFT JOIN dbo.FN_EST_PegarSaldoMercadoriaPorIdComDadosDoTanqueLMC_PorPeriodo(
+     CONVERT(varchar(30),@Combustivel),@Inicio,@Fim,@Empresa) s
+     ON s.IdTanque=h.IdTanque AND s.DataMovimentacao=h.DataMovimento
+WHERE t.IdEmpresa=@Empresa AND h.IdCombustivel=@Combustivel
+  AND h.DataMovimento BETWEEN @Inicio AND @Fim
+ORDER BY h.DataMovimento,t.Numero,h.DataRegistro;
